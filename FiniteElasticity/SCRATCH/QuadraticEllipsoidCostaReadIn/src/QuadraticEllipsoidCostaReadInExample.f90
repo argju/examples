@@ -68,15 +68,15 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   REAL(CMISSDP) :: FIBRE_SLOPE_ENDO=1.73205_CMISSDP !Slope of fibres in endocardium = 60 degrees
   REAL(CMISSDP) :: FIBRE_SLOPE_EPI=-3.4641_CMISSDP !Slope of fibres in endocardium = -60 degrees 
   REAL(CMISSDP) :: SHEET_SLOPE_BASE_ENDO=1.0_CMISSDP !Slope of sheet at base endocardium 
-  !REAL(CMISSDP), PARAMETER :: COSTA_PARAMS (1:7) =  (/ 0.2, 30.0, 12.0, 14.0, 14.0, 10.0, 18.0 /)
-  !REAL(CMISSDP), DIMENSION(:),ALLOCATABLE :: COSTA_PARAMS ! =  (/ 0.2, 30.0, 12.0, 14.0, 14.0, 10.0, 18.0 /) ! a bff bfs bfn bss bsn bnn
+  !REAL(CMISSDP), PARAMETER :: COSTA_PARAMS (1:7) = (/ 0.2, 30.0, 12.0, 14.0, 14.0, 10.0, 18.0 /)
+  !REAL(CMISSDP), DIMENSION(:),ALLOCATABLE :: COSTA_PARAMS ! = (/ 0.2, 30.0, 12.0, 14.0, 14.0, 10.0, 18.0 /) ! a bff bfs bfn bss bsn bnn
   REAL(CMISSDP) :: COSTA_PARAMS (1:7)
-  REAL(CMISSDP), PARAMETER :: INNER_PRESSURE=2.0_CMISSDP  !Positive is compressive
+  REAL(CMISSDP), DIMENSION(1:7) :: INNER_PRESSURE  =  (/0.0, 0.3558, 0.5436, 0.6670, 0.7651, 0.8800, 0.9529/)  !Positive is compressive
   REAL(CMISSDP), PARAMETER :: OUTER_PRESSURE=0.0_CMISSDP  !Positive is compressive
 
-  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_X_ELEMENTS=4  ! X ==NUMBER_GLOBAL_CIRCUMFERENTIAL_ELEMENTS
-  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_Y_ELEMENTS=4  ! Y ==NUMBER_GLOBAL_LONGITUDINAL_ELEMENTS
-  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_Z_ELEMENTS=1  ! Z ==NUMBER_GLOBAL_TRANSMURAL_ELEMENTS
+  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_X_ELEMENTS=4 ! X ==NUMBER_GLOBAL_CIRCUMFERENTIAL_ELEMENTS
+  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_Y_ELEMENTS=4 ! Y ==NUMBER_GLOBAL_LONGITUDINAL_ELEMENTS
+  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_Z_ELEMENTS=1 ! Z ==NUMBER_GLOBAL_TRANSMURAL_ELEMENTS
   INTEGER(CMISSIntg) :: NumberOfDomains
 
   INTEGER(CMISSIntg), PARAMETER :: CoordinateSystemUserNumber=1
@@ -124,22 +124,28 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   !Program variables
 
   INTEGER(CMISSIntg) :: MPI_IERROR
-  INTEGER(CMISSIntg) :: EquationsSetIndex  
+  INTEGER(CMISSIntg) :: EquationsSetIndex
   INTEGER(CMISSIntg) :: NumberOfComputationalNodes,ComputationalNodeNumber
   REAL(CMISSDP) :: FibreFieldAngle(3) 
   REAL(CMISSDP) :: nu,theta,omega,XI3,XI3delta,XI2delta, zero
   INTEGER(CMISSIntg) ::i,j,k,component_idx,node_idx,TOTAL_NUMBER_NODES_XI(3)
   !For grabbing surfaces
+  CHARACTER(LEN=50) :: fileName,fileNumber
   INTEGER(CMISSIntg) :: InnerNormalXi,OuterNormalXi,TopNormalXi
   INTEGER(CMISSIntg), ALLOCATABLE :: InnerSurfaceNodes(:)
   INTEGER(CMISSIntg), ALLOCATABLE :: OuterSurfaceNodes(:)
   INTEGER(CMISSIntg), ALLOCATABLE :: TopSurfaceNodes(:)
   INTEGER(CMISSIntg), ALLOCATABLE :: G(:)
   INTEGER(CMISSIntg) :: NotCornerNode, CornerNode, NumberOfCornerNodes, gn, CorrectNodeNumber,TotalNumberOfNodes
-  INTEGER(CMISSIntg) :: NN,NODE,NodeDomain
+  INTEGER(CMISSIntg) :: NN,NODE,NodeDomain,N,D,Nx,Ny,time_step,NumberOfIncrements
   REAL(CMISSDP) :: XCoord,YCoord,ZCoord
   LOGICAL :: X_FIXED,Y_FIXED,X_OKAY,Y_OKAY
   INTEGER(CMISSIntg) :: PARAMETERSETNR
+  REAL(CMISSDP)     , dimension(:,:), allocatable :: Nodes
+  INTEGER(CMISSIntg) :: EquatorialXi2NodeNumber, QuarterXi2NodeNumber
+  REAL(CMISSDP) :: Xi2weight, BaseEndoSheetAngle, BaseMidwallSheetAngle, BaseEpiSheetAngle, EquatorialEndoSheetAngle
+  REAL(CMISSDP) :: EquatorialMidwallSheetAngle, EquatorialEpiSheetAngle, ApexEndoSheetAngle, ApexMidwallSheetAngle
+  REAL(CMISSDP) :: ApexEpiSheetAngle, a_e, b_e, c_e, a_a, b_a, c_a, a_b, b_b, c_b
   !CMISS variables
 
   TYPE(CMISSBasisType) :: QuadraticBasis,QuadraticCollapsedBasis,LinearBasis,LinearCollapsedBasis
@@ -168,6 +174,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CHARACTER(len=20) :: HEIGHT, WIDTH, WALL, CUTOFF,X_ELEM,Y_ELEM,Z_ELEM
   CHARACTER(len=20) :: FIBRE_ENDO, FIBRE_EPI, SHEET_ENDO_SLOPE
   CHARACTER(len=20) :: COSTA_1, COSTA_2, COSTA_3, COSTA_4, COSTA_5, COSTA_6, COSTA_7
+  CHARACTER(len=20) :: Pressure_1, Pressure_2, Pressure_3, Pressure_4, Pressure_5, Pressure_6, Pressure_7
   CHARACTER(len=4) :: PARAMETERSET
 #ifdef WIN32
   !Initialise QuickWin
@@ -179,7 +186,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   !If attempt fails set with system estimated values
   IF(.NOT.QUICKWIN_STATUS) QUICKWIN_STATUS=SETWINDOWCONFIG(QUICKWIN_WINDOW_CONFIG)
 #endif
-  CALL GETARG(1,PARAMETERSET)
+CALL GETARG(1,PARAMETERSET)
   CALL GETARG(2,X_ELEM)
   CALL GETARG(3,Y_ELEM)
   CALL GETARG(4,Z_ELEM)
@@ -197,6 +204,13 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CALL GETARG(15,COSTA_5)
   CALL GETARG(16,COSTA_6)
   CALL GETARG(17,COSTA_7)
+  CALL GETARG(18,Pressure_1)
+  CALL GETARG(19,Pressure_2)
+  CALL GETARG(20,Pressure_3)
+  CALL GETARG(21,Pressure_4)
+  CALL GETARG(22,Pressure_5)
+  CALL GETARG(23,Pressure_6)
+  CALL GETARG(24,Pressure_7)
   READ(HEIGHT,*)LONG_AXIS
   READ(WIDTH,*)SHORT_AXIS
   READ(WALL,*)WALL_THICKNESS
@@ -211,6 +225,13 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   READ(COSTA_5,*)COSTA_PARAMS(5)
   READ(COSTA_6,*)COSTA_PARAMS(6)
   READ(COSTA_7,*)COSTA_PARAMS(7)
+  READ(Pressure_1,*)INNER_PRESSURE(1)
+  READ(Pressure_2,*)INNER_PRESSURE(2)
+  READ(Pressure_3,*)INNER_PRESSURE(3)
+  READ(Pressure_4,*)INNER_PRESSURE(4)
+  READ(Pressure_5,*)INNER_PRESSURE(5)
+  READ(Pressure_6,*)INNER_PRESSURE(6)
+  READ(Pressure_7,*)INNER_PRESSURE(7)
   !Convert PARAMETERSET to integer and measure the number of digits
   !Intialise cmiss
   CALL CMISSInitialise(WorldCoordinateSystem,WorldRegion,Err)
@@ -227,13 +248,13 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CALL CMISSComputationalNodeNumberGet(ComputationalNodeNumber,Err)
 
   !Broadcast the number of elements in the X,Y and Z directions and the number of partitions to the other computational nodes
-!   CALL MPI_BCAST(NumberGlobalXElements,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-!   CALL MPI_BCAST(NumberGlobalYElements,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-!   CALL MPI_BCAST(NumberGlobalZElements,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-!   CALL MPI_BCAST(NumberOfDomains,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
+! CALL MPI_BCAST(NumberGlobalXElements,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
+! CALL MPI_BCAST(NumberGlobalYElements,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
+! CALL MPI_BCAST(NumberGlobalZElements,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
+! CALL MPI_BCAST(NumberOfDomains,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
   READ(X_ELEM,*)NUMBER_GLOBAL_X_ELEMENTS
   READ(Y_ELEM,*)NUMBER_GLOBAL_Y_ELEMENTS
-  READ(Z_ELEM,*)NUMBER_GLOBAL_Z_ELEMENTS 
+  READ(Z_ELEM,*)NUMBER_GLOBAL_Z_ELEMENTS
   NumberOfDomains=NumberOfComputationalNodes
 
   !Create a CS - default is 3D rectangular cartesian CS with 0,0,0 as origin
@@ -271,7 +292,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CALL CMISSBasisCollapsedXiSet(QuadraticCollapsedBasis,(/CMISSBasisXiCollapsed, &
        & CMISSBasisCollapsedAtXi0,CMISSBasisNotCollapsed/),Err)
   CALL CMISSBasisQuadratureNumberOfGaussXiSet(QuadraticCollapsedBasis, &
-       & (/CMISSBasisMidQuadratureScheme,CMISSBasisMidQuadratureScheme,CMISSBasisMidQuadratureScheme/),Err)  
+       & (/CMISSBasisMidQuadratureScheme,CMISSBasisMidQuadratureScheme,CMISSBasisMidQuadratureScheme/),Err)
   CALL CMISSBasisQuadratureLocalFaceGaussEvaluateSet(QuadraticCollapsedBasis,.true.,Err) !Have to do this
   CALL CMISSBasisCreateFinish(QuadraticCollapsedBasis,Err)
 
@@ -324,9 +345,9 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CALL CMISSFieldTypeInitialise(GeometricField,Err)
   CALL CMISSFieldCreateStart(FieldGeometryUserNumber,Region,GeometricField,Err)
   CALL CMISSFieldMeshDecompositionSet(GeometricField,Decomposition,Err)
-  CALL CMISSFieldTypeSet(GeometricField,CMISSFieldGeometricType,Err)  
+  CALL CMISSFieldTypeSet(GeometricField,CMISSFieldGeometricType,Err)
   CALL CMISSFieldNumberOfVariablesSet(GeometricField,FieldGeometryNumberOfVariables,Err)
-  CALL CMISSFieldNumberOfComponentsSet(GeometricField,CMISSFieldUVariableType,FieldGeometryNumberOfComponents,Err)  
+  CALL CMISSFieldNumberOfComponentsSet(GeometricField,CMISSFieldUVariableType,FieldGeometryNumberOfComponents,Err)
   CALL CMISSFieldComponentMeshComponentSet(GeometricField,CMISSFieldUVariableType,1,QuadraticMeshComponentNumber,Err)
   CALL CMISSFieldComponentMeshComponentSet(GeometricField,CMISSFieldUVariableType,2,QuadraticMeshComponentNumber,Err)
   CALL CMISSFieldComponentMeshComponentSet(GeometricField,CMISSFieldUVariableType,3,QuadraticMeshComponentNumber,Err)
@@ -335,21 +356,21 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   !Update the geometric field parameters
   CALL CMISSGeneratedMeshGeometricParametersCalculate(GeometricField,GeneratedMesh,Err)
 
-  !Create a fibre field and attach it to the geometric field  
+  !Create a fibre field and attach it to the geometric field
   CALL CMISSFieldTypeInitialise(FibreField,Err)
   CALL CMISSFieldCreateStart(FieldFibreUserNumber,Region,FibreField,Err)
   CALL CMISSFieldTypeSet(FibreField,CMISSFieldFibreType,Err)
-  CALL CMISSFieldMeshDecompositionSet(FibreField,Decomposition,Err)        
+  CALL CMISSFieldMeshDecompositionSet(FibreField,Decomposition,Err)
   CALL CMISSFieldGeometricFieldSet(FibreField,GeometricField,Err)
   CALL CMISSFieldNumberOfVariablesSet(FibreField,FieldFibreNumberOfVariables,Err)
-  CALL CMISSFieldNumberOfComponentsSet(FibreField,CMISSFieldUVariableType,FieldFibreNumberOfComponents,Err)  
+  CALL CMISSFieldNumberOfComponentsSet(FibreField,CMISSFieldUVariableType,FieldFibreNumberOfComponents,Err)
   CALL CMISSFieldComponentMeshComponentSet(FibreField,CMISSFieldUVariableType,1,QuadraticMeshComponentNumber,Err)
   CALL CMISSFieldComponentMeshComponentSet(FibreField,CMISSFieldUVariableType,2,QuadraticMeshComponentNumber,Err)
   CALL CMISSFieldComponentMeshComponentSet(FibreField,CMISSFieldUVariableType,3,QuadraticMeshComponentNumber,Err)
   CALL CMISSFieldCreateFinish(FibreField,Err)
 
   !Set Fibre directions (this block is parallel-untested)
-  node_idx=0  
+  node_idx=0
   !This is valid only for quadratic basis functions
   TOTAL_NUMBER_NODES_XI(1)=NUMBER_GLOBAL_X_ELEMENTS*2
   TOTAL_NUMBER_NODES_XI(2)=NUMBER_GLOBAL_Y_ELEMENTS*2+1
@@ -377,7 +398,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
         CornerNode=CornerNode+1
         G(gn)=CornerNode
      ENDIF
-     DO j=2,TOTAL_NUMBER_NODES_XI(2)  
+DO j=2,TOTAL_NUMBER_NODES_XI(2)
         DO i=1,TOTAL_NUMBER_NODES_XI(1)
            gn=gn+1
            IF ((mod(i,2)==0).OR.(mod(j,2)==0).OR.(mod(k,2)==0)) THEN
@@ -389,9 +410,49 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
               CornerNode=CornerNode+1
               G(gn)=CornerNode
            ENDIF
-        ENDDO
+ENDDO
      ENDDO
   ENDDO
+
+EquatorialXi2NodeNumber=(NUMBER_GLOBAL_Y_ELEMENTS)+1
+QuarterXi2NodeNumber=(NUMBER_GLOBAL_Y_ELEMENTS)/2+1
+
+!!$BaseEndoSheetAngle=PI/2.0-(-52.0/360.0)*2.0*PI
+!!$BaseMidwallSheetAngle=PI/2.0-(43.0/360.0)*2.0*PI
+!!$BaseEpiSheetAngle=PI/2.0-(-55.0/360.0)*2.0*PI
+!!$
+!!$EquatorialEndoSheetAngle=PI/2.0-(53.0/360.0)*2.0*PI
+!!$EquatorialMidwallSheetAngle=PI/2.0-(-37.0/360.0)*2.0*PI
+!!$EquatorialEpiSheetAngle=PI/2.0-(46.0/360.0)*2.0*PI
+!!$
+!!$ApexEndoSheetAngle=PI/2.0-(0.0/360.0)*2.0*PI
+!!$ApexMidwallSheetAngle=PI/2.0-(0.0/360.0)*2.0*PI
+!!$ApexEpiSheetAngle=PI/2.0-(0.0/360.0)*2.0*PI
+
+BaseEndoSheetAngle=PI/2.0-atan(SHEET_SLOPE_BASE_ENDO)
+BaseMidwallSheetAngle=PI/2.0+atan(SHEET_SLOPE_BASE_ENDO)
+BaseEpiSheetAngle=PI/2.0-atan(SHEET_SLOPE_BASE_ENDO)
+
+EquatorialEndoSheetAngle=PI/2.0+atan(SHEET_SLOPE_BASE_ENDO)
+EquatorialMidwallSheetAngle=PI/2.0-atan(SHEET_SLOPE_BASE_ENDO)
+EquatorialEpiSheetAngle=PI/2.0+atan(SHEET_SLOPE_BASE_ENDO)
+
+ApexEndoSheetAngle=PI/2.0
+ApexMidwallSheetAngle=PI/2.0
+ApexEpiSheetAngle=PI/2.0
+
+a_e=2*EquatorialEpiSheetAngle-4*EquatorialMidwallSheetAngle+2*EquatorialEndoSheetAngle
+b_e=4*EquatorialMidwallSheetAngle-3*EquatorialEndoSheetAngle-EquatorialEpiSheetAngle
+c_e=EquatorialEndoSheetAngle
+
+a_a=2*ApexEpiSheetAngle-4*ApexMidwallSheetAngle+2*ApexEndoSheetAngle
+b_a=4*ApexMidwallSheetAngle-3*ApexEndoSheetAngle-ApexEpiSheetAngle
+c_a=ApexEndoSheetAngle
+
+a_b=2*BaseEpiSheetAngle-4*BaseMidwallSheetAngle+2*BaseEndoSheetAngle
+b_b=4*BaseMidwallSheetAngle-3*BaseEndoSheetAngle-BaseEpiSheetAngle
+c_b=BaseEndoSheetAngle
+
 
 
   XI2delta=(PI-CUTOFF_ANGLE)/(TOTAL_NUMBER_NODES_XI(2)-1)
@@ -404,15 +465,29 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
      i=1
      node_idx=node_idx+1
      CorrectNodeNumber=G(node_idx)
-     FibreFieldAngle=(/zero,zero,zero/) 
+     FibreFieldAngle=(/zero,zero,PI/2.0/) 
      DO component_idx=1,FieldFibreNumberOfComponents
         CALL CMISSFieldParameterSetUpdateNode(FibreField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,DerivativeUserNumber, &
              & CorrectNodeNumber,component_idx,FibreFieldAngle(component_idx),Err)
      ENDDO
-     theta=atan((FIBRE_SLOPE_EPI-FIBRE_SLOPE_ENDO)*XI3+FIBRE_SLOPE_ENDO)
-     DO j=2, TOTAL_NUMBER_NODES_XI(2) 
-        nu=XI2delta*(j-1)
-        omega=PI/2+(-2*nu/(PI-CUTOFF_ANGLE)+1)*atan(SHEET_SLOPE_BASE_ENDO)*(-2*XI3+1)
+    
+     DO j=2, TOTAL_NUMBER_NODES_XI(2)
+        IF (j<=QuarterXi2NodeNumber) THEN
+           theta=atan((FIBRE_SLOPE_EPI-FIBRE_SLOPE_ENDO)*XI3+FIBRE_SLOPE_ENDO)*((j-1.0)/(QuarterXi2NodeNumber-1.0))
+        ELSE
+           theta=atan((FIBRE_SLOPE_EPI-FIBRE_SLOPE_ENDO)*XI3+FIBRE_SLOPE_ENDO)
+        ENDIF
+
+        IF (j<=EquatorialXi2NodeNumber) THEN
+           Xi2weight=(j-1.0)/(EquatorialXi2NodeNumber-1.0)
+           omega=(1-Xi2weight)*(a_a*XI3**2+b_a*XI3+c_a)+Xi2weight*(a_e*XI3**2+b_e*XI3+c_e)
+        ELSEIF (j>EquatorialXi2NodeNumber) THEN
+           Xi2weight=((j-1.0)-(EquatorialXi2NodeNumber-1.0))/(TOTAL_NUMBER_NODES_XI(2)-EquatorialXi2NodeNumber)
+           omega=(1-Xi2weight)*(a_e*XI3**2+b_e*XI3+c_e)+Xi2weight*(a_b*XI3**2+b_b*XI3+c_b)
+        ENDIF
+!!$        nu=PI-XI2delta*(j-1)
+!!$        omega=((-2/(PI-CUTOFF_ANGLE))*(nu-PI)-1)*atan(SHEET_SLOPE_BASE_ENDO)*(8*XI3**2-8*XI3+1)
+        
         !nu=PI-XI2delta*(j-1)
         !omega=PI/2+cos(2*nu)*atan(SHEET_SLOPE_BASE_ENDO)*(-2*XI3+1)
         DO i=1, TOTAL_NUMBER_NODES_XI(1)
@@ -427,15 +502,27 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
      ENDDO
      XI3=XI3+XI3delta
   ENDDO
- 
-  !Create a material field and attach it to the geometric field  
+
+!Here we read in nodes that should be used instead of ellipsoid nodes 
+!!$  open(unit = 2, file = "./Newnode1.in")
+!!$  call read_mesh(2,TotalNumberOfNodes,Nodes)
+!!$  close(2)
+!!$  !Set node positions
+!!$  DO N=1,size(Nodes,1)
+!!$  DO D=1,3
+!!$     CALL CMISSFieldParameterSetUpdateNode(GeometricField,CMISSFieldUVariableType, &
+!!$& CMISSFieldValuesSetType,1,1,N,D,Nodes(N,D),Err)
+!!$  ENDDO
+!!$  ENDDO 
+  
+  !Create a material field and attach it to the geometric field
   CALL CMISSFieldTypeInitialise(MaterialField,Err)
   CALL CMISSFieldCreateStart(FieldMaterialUserNumber,Region,MaterialField,Err)
   CALL CMISSFieldTypeSet(MaterialField,CMISSFieldMaterialType,Err)
-  CALL CMISSFieldMeshDecompositionSet(MaterialField,Decomposition,Err)        
+  CALL CMISSFieldMeshDecompositionSet(MaterialField,Decomposition,Err)
   CALL CMISSFieldGeometricFieldSet(MaterialField,GeometricField,Err)
   CALL CMISSFieldNumberOfVariablesSet(MaterialField,FieldMaterialNumberOfVariables,Err)
-  CALL CMISSFieldNumberOfComponentsSet(MaterialField,CMISSFieldUVariableType,FieldMaterialNumberOfComponents,Err)  
+  CALL CMISSFieldNumberOfComponentsSet(MaterialField,CMISSFieldUVariableType,FieldMaterialNumberOfComponents,Err)
   CALL CMISSFieldComponentInterpolationSet(MaterialField,CMISSFieldUVariableType,1,CMISSFieldConstantInterpolation,Err)
   CALL CMISSFieldComponentInterpolationSet(MaterialField,CMISSFieldUVariableType,2,CMISSFieldConstantInterpolation,Err)
   CALL CMISSFieldCreateFinish(MaterialField,Err)
@@ -480,7 +567,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CALL CMISSEquationsSetDependentCreateStart(EquationsSet,FieldDependentUserNumber,DependentField,Err)
   CALL CMISSEquationsSetDependentCreateFinish(EquationsSet,Err)
 
-  CALL CMISSEquationsSetMaterialsCreateStart(EquationsSet,FieldMaterialUserNumber,MaterialField,Err)  
+  CALL CMISSEquationsSetMaterialsCreateStart(EquationsSet,FieldMaterialUserNumber,MaterialField,Err)
   CALL CMISSEquationsSetMaterialsCreateFinish(EquationsSet,Err)
 
   !Create the equations set equations
@@ -488,7 +575,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   CALL CMISSEquationsSetEquationsCreateStart(EquationsSet,Equations,Err)
   CALL CMISSEquationsSparsityTypeSet(Equations,CMISSEquationsSparseMatrices,Err)
   CALL CMISSEquationsOutputTypeSet(Equations,CMISSEquationsNoOutput,Err)
-  CALL CMISSEquationsSetEquationsCreateFinish(EquationsSet,Err)   
+  CALL CMISSEquationsSetEquationsCreateFinish(EquationsSet,Err)
 
   !Initialise dependent field from undeformed geometry and displacement bcs and set hydrostatic pressure
   CALL CMISSFieldParametersToFieldParametersComponentCopy(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType, &
@@ -525,7 +612,7 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
   !Create the problem solver equations
   CALL CMISSSolverTypeInitialise(Solver,Err)
   CALL CMISSSolverEquationsTypeInitialise(SolverEquations,Err)
-  CALL CMISSProblemSolverEquationsCreateStart(Problem,Err)   
+  CALL CMISSProblemSolverEquationsCreateStart(Problem,Err)
   CALL CMISSProblemSolverGet(Problem,CMISSControlLoopNode,1,Solver,Err)
   CALL CMISSSolverSolverEquationsGet(Solver,SolverEquations,Err)
   CALL CMISSSolverEquationsSparsityTypeSet(SolverEquations,CMISSSolverEquationsSparseMatrices,Err)
@@ -547,11 +634,11 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
     NODE=TopSurfaceNodes(NN)
     CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
     IF(NodeDomain==ComputationalNodeNumber) THEN
-      CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,3,ZCoord,Err)
+CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,3,ZCoord,Err)
       CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,3, &
         & CMISSBoundaryConditionFixed,ZCoord,Err)
     ENDIF
-  ENDDO
+ENDDO
 
   !Apply inner surface pressure
   !NOTE: Surface pressure goes into pressure_values_set_type of the DELUDELN type
@@ -559,81 +646,132 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
     NODE=InnerSurfaceNodes(NN)
     CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
     IF(NodeDomain==ComputationalNodeNumber) THEN
-      CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldDelUDelNVariableType,1,1,NODE, &
+CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldDelUDelNVariableType,1,1,NODE, &
         & ABS(InnerNormalXi), &
-        & CMISSBoundaryConditionPressure,INNER_PRESSURE,Err)
+        & CMISSBoundaryConditionPressure,INNER_PRESSURE(1),Err)
     ENDIF
-  ENDDO
+ENDDO
 
   !Apply outer surface pressure
   DO NN=1,SIZE(OuterSurfaceNodes,1)
     NODE=OuterSurfaceNodes(NN)
     CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
     IF(NodeDomain==ComputationalNodeNumber) THEN
-      CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldDelUDelNVariableType,1,1,NODE, &
+CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldDelUDelNVariableType,1,1,NODE, &
         & ABS(OuterNormalXi), &
         & CMISSBoundaryConditionPressure,OUTER_PRESSURE,Err)
     ENDIF
-  ENDDO
+ENDDO
 
   !Fix apex in x and y direction
-!!$  DO NN=1, NUMBER_GLOBAL_Z_ELEMENTS*2+1
-!!$     NODE=NN+((NN-1)*(NUMBER_GLOBAL_X_ELEMENTS*2)*(NUMBER_GLOBAL_Z_ELEMENTS*2+1))
+!!$ DO NN=1, NUMBER_GLOBAL_Z_ELEMENTS*2+1
+!!$ NODE=NN+((NN-1)*(NUMBER_GLOBAL_X_ELEMENTS*2)*(NUMBER_GLOBAL_Z_ELEMENTS*2+1))
+!!$ CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
+!!$ IF(NodeDomain==ComputationalNodeNumber) THEN
+!!$ CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,1,XCoord,Err)
+!!$ CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,2,YCoord,Err)
+!!$ CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,1, &
+!!$ & CMISSBoundaryConditionFixed,XCoord,Err)
+!!$ CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,2, &
+!!$ & CMISSBoundaryConditionFixed,YCoord,Err)
+!!$ ENDIF
+!!$ ENDDO
+ Ny=1
+
+  DO NN=1,2
+     Nx=NUMBER_GLOBAL_X_ELEMENTS/2+Ny
+
+     NODE=TopSurfaceNodes(Ny)
+     CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
+     IF(NodeDomain==ComputationalNodeNumber) THEN
+        CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType, &
+             & 1,1,NODE,2,YCoord,Err)
+        CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,2, &
+             & CMISSBoundaryConditionFixed,YCoord,Err)
+        WRITE(*,*) "FIXING NODE",NODE,"IN Y DIRECTION"
+        Y_FIXED=.TRUE.
+     ENDIF
+
+     NODE=TopSurfaceNodes(Nx)
+     CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
+     IF(NodeDomain==ComputationalNodeNumber) THEN
+        CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,&
+             & 1,1,NODE,1,XCoord,Err)
+        CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,1, &
+             & CMISSBoundaryConditionFixed,XCoord,Err)
+        WRITE(*,*) "FIXING NODE",NODE,"IN X DIRECTION"
+        X_FIXED=.TRUE.
+     ENDIF
+
+
+     Ny=Ny+NUMBER_GLOBAL_X_ELEMENTS
+  ENDDO
+  !Fix more nodes at the base to stop free body motion
+!!$  X_FIXED=.FALSE.
+!!$  Y_FIXED=.FALSE.
+!!$  DO NN=1,SIZE(TopSurfaceNodes,1)
+!!$     NODE=TopSurfaceNodes(NN)
 !!$     CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
 !!$     IF(NodeDomain==ComputationalNodeNumber) THEN
 !!$        CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,1,XCoord,Err)
 !!$        CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,2,YCoord,Err)
-!!$        CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,1, &
-!!$             & CMISSBoundaryConditionFixed,XCoord,Err)
-!!$        CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,2, &
-!!$             & CMISSBoundaryConditionFixed,YCoord,Err)
+!!$        IF(ABS(XCoord)<1.0E-6_CMISSDP) THEN
+!!$           CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,1, &
+!!$                & CMISSBoundaryConditionFixed,XCoord,Err)
+!!$           WRITE(*,*) "FIXING NODE",NODE,"IN X DIRECTION"
+!!$           X_FIXED=.TRUE.
+!!$        ENDIF
+!!$        IF(ABS(YCoord)<1.0E-6_CMISSDP) THEN
+!!$           CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,2, &
+!!$                & CMISSBoundaryConditionFixed,YCoord,Err)
+!!$           WRITE(*,*) "FIXING NODE",NODE,"IN Y DIRECTION"
+!!$           Y_FIXED=.TRUE.
+!!$        ENDIF
 !!$     ENDIF
-!!$  ENDDO
-
-  !Fix more nodes at the base to stop free body motion
-  X_FIXED=.FALSE.
-  Y_FIXED=.FALSE.
-  DO NN=1,SIZE(TopSurfaceNodes,1)
-    NODE=TopSurfaceNodes(NN)
-    CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
-    IF(NodeDomain==ComputationalNodeNumber) THEN
-      CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,1,XCoord,Err)
-      CALL CMISSFieldParameterSetGetNode(GeometricField,CMISSFieldUVariableType,CMISSFieldValuesSetType,1,1,NODE,2,YCoord,Err)
-      IF(ABS(XCoord)<1.0E-6_CMISSDP) THEN
-        CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,1, &
-          & CMISSBoundaryConditionFixed,XCoord,Err)
-        WRITE(*,*) "FIXING NODE",NODE,"IN X DIRECTION"
-        X_FIXED=.TRUE.
-      ENDIF
-      IF(ABS(YCoord)<1.0E-6_CMISSDP) THEN
-        CALL CMISSBoundaryConditionsSetNode(BoundaryConditions,DependentField,CMISSFieldUVariableType,1,1,NODE,2, &
-          & CMISSBoundaryConditionFixed,YCoord,Err)
-        WRITE(*,*) "FIXING NODE",NODE,"IN Y DIRECTION"
-        Y_FIXED=.TRUE.
-      ENDIF
-    ENDIF
-  ENDDO
+!!$ENDDO
   CALL MPI_REDUCE(X_FIXED,X_OKAY,1,MPI_LOGICAL,MPI_LOR,0,MPI_COMM_WORLD,MPI_IERROR)
   CALL MPI_REDUCE(Y_FIXED,Y_OKAY,1,MPI_LOGICAL,MPI_LOR,0,MPI_COMM_WORLD,MPI_IERROR)
   IF(ComputationalNodeNumber==0) THEN
-    IF(.NOT.(X_OKAY.AND.Y_OKAY)) THEN
-      WRITE(*,*) "Free body motion could not be prevented!"
+IF(.NOT.(X_OKAY.AND.Y_OKAY)) THEN
+WRITE(*,*) "Free body motion could not be prevented!"
       CALL CMISSFinalise(Err)
       STOP
-    ENDIF
-  ENDIF
+ENDIF
+ENDIF
 
-  CALL CMISSSolverEquationsBoundaryConditionsCreateFinish(SolverEquations,Err)
+CALL CMISSSolverEquationsBoundaryConditionsCreateFinish(SolverEquations,Err)
+  
 
-  !Solve problem
-  CALL CMISSProblemSolve(Problem,Err)
+!Solve for many timesteps while incrementing inner pressure
+  NumberOfIncrements=SIZE(INNER_PRESSURE,1)
+  DO time_step=1,NumberOfIncrements
+        !Apply inner surface pressure
+    !NOTE: Surface pressure goes into pressure_values_set_type of the DELUDELN type
+    DO NN=1,SIZE(InnerSurfaceNodes,1)
+      NODE=InnerSurfaceNodes(NN) 
 
-  !Output solution  
-  CALL CMISSFieldsTypeInitialise(Fields,Err)
-  CALL CMISSFieldsTypeCreate(Region,Fields,Err)
-  CALL CMISSFieldIONodesExport(Fields,"QuadraticEllipsoidCostaReadIn"// PARAMETERSET,"FORTRAN",Err)
-  CALL CMISSFieldIOElementsExport(Fields,"QuadraticEllipsoidCostaReadIn"// PARAMETERSET,"FORTRAN",Err)
-  CALL CMISSFieldsTypeFinalise(Fields,Err)
+      CALL CMISSDecompositionNodeDomainGet(Decomposition,NODE,1,NodeDomain,Err)
+      IF(NodeDomain==ComputationalNodeNumber) THEN
+        !Set the field directly
+        CALL CMISSFieldParameterSetUpdateNode(DependentField,CMISSFieldDelUDelNVariableType,CMISSFieldPressureValuesSetType, &
+ & 1,1, NODE, ABS(InnerNormalXi),INNER_PRESSURE(time_step),Err)
+      ENDIF
+    ENDDO
+!Solve problem
+    CALL CMISSProblemSolve(Problem,Err)
+
+    !Output solution  
+    CALL CMISSFieldsTypeInitialise(Fields,Err)
+    CALL CMISSFieldsTypeCreate(Region,Fields,Err)
+    WRITE(fileNumber,'(I3.3)') time_step
+    fileName='./output/'//trim(PARAMETERSET)//'QuadraticEllipsoidCostaReadIn'//trim(fileNumber)
+    CALL CMISSFieldIONodesExport(Fields,trim(fileName),"FORTRAN",Err)
+    CALL CMISSFieldIOElementsExport(Fields,trim(fileName),"FORTRAN",Err)
+    CALL CMISSFieldsTypeFinalise(Fields,Err)
+
+
+  ENDDO
+
 
   CALL CMISSFinalise(Err)
 
@@ -641,5 +779,18 @@ PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
 
   STOP
 
-END PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
+!!$contains
+!!$  subroutine read_mesh(fp, maxnodenr, node_coords)
+!!$    INTEGER(CMISSIntg), intent(in)    :: fp  !< file 'pointer'
+!!$    REAL(CMISSDP)     , dimension(:,:), allocatable, intent(inout) :: node_coords  !< initial positions etc
+!!$    INTEGER(CMISSIntg), intent(in)  :: maxnodenr
+!!$    INTEGER(CMISSIntg) :: i
+!!$    allocate(node_coords(1:maxnodenr,1:3))
+!!$    do i = 1, maxnodenr
+!!$      read (fp,*) node_coords(i,:)  ! expect input in order
+!!$     ! write (*,*) "initial value of node ", i ," is ", node_coords(i,:) 
+!!$    end do
+!!$  end subroutine read_mesh
 
+
+END PROGRAM QUADRATICELLIPSOIDCOSTAREADINEXAMPLE
